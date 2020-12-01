@@ -13,10 +13,10 @@ function setup() {
   video.size(width, height);
   video.hide();
 	
-	roundVectors = [[createVector(400, 0), createVector(620, 130), createVector(0, 0)],
-									[createVector(500, 460), createVector(0, 400), createVector(width, 0)],
-									[createVector(620, 130), createVector(500, 460), createVector(0, height)],
-									[createVector(0, 400), createVector(400, 0), createVector(width, height)]];
+	roundVectors = [[createVector(500, 0), createVector(620, 130), createVector(0, height)],
+									[createVector(400, 460), createVector((BALL_SIZE/2 + 5), 300), createVector(width, 0)],
+									[createVector(620, 300), createVector(500, 460), createVector(0, 0)],
+									[createVector((BALL_SIZE/2 + 5), 130), createVector(400, 0), createVector(width, height)]];
 	
 	pastRounds = [];
 	currentRound = new Round(roundVectors[pastRounds.length][0], roundVectors[pastRounds.length][1]);
@@ -46,12 +46,9 @@ function mouseDragged() {
 function startEndAnimation() {
 	
 	playbackRatios = [];
-	pastRounds.sort(function(a, b) {
-		return a.savedFrames.length - b.savedFrames.length;
-	});
 	
 	for (let i = 0; i < pastRounds.length; i ++) {
-		playbackRatios.push(pastRounds[i].savedFrames.length / pastRounds[0].savedFrames.length);
+		playbackRatios.push(pastRounds[i].savedFrames.length / 200);
 	}
 	
 	frameStarted = frameCount;
@@ -79,10 +76,10 @@ function draw() {
 			
 			noStroke();
 			fill(200);
-			circle(width - frame.ballX, frame.ballY, BALL_SIZE);
+			circle(frame.ballX, frame.ballY, BALL_SIZE);
 
 			for (let p = 0; p < frame.particles.length; p++) {
-				frame.particles[p].draw();
+				frame.particles[p].drawMirrored();
 			}
 			
 			pop();
@@ -92,6 +89,12 @@ function draw() {
 	}
 	
 }
+
+
+
+
+
+
 
 
 
@@ -150,19 +153,19 @@ class Round {
 		noStroke();
 		fill(0, 0, 255);
 		if (this.start.x == 0) {
-			rect(this.start.x, this.start.y - (BALL_SIZE/2 + 5), 20, BALL_SIZE+10);
+			rect(width - this.start.x, this.start.y - (BALL_SIZE/2 + 5), 20, BALL_SIZE+10);
 		}
 		else {
-			rect(this.start.x - (BALL_SIZE/2 + 5), this.start.y, BALL_SIZE+10, 20);
+			rect(width - this.start.x - (BALL_SIZE/2 + 5), this.start.y, BALL_SIZE+10, 20);
 		}
 		
 		
 		fill(100, 100, 0);
 		if (this.end.x == 0) {
-			rect(this.end.x, this.end.y - (BALL_SIZE/2 + 5), 20, BALL_SIZE+10);
+			rect(width - this.end.x, this.end.y - (BALL_SIZE/2 + 5), 20, BALL_SIZE+10);
 		}
 		else {
-			rect(this.end.x - (BALL_SIZE/2 + 5), this.end.y, BALL_SIZE+10, 20);
+			rect(width - this.end.x - (BALL_SIZE/2 + 5), this.end.y, BALL_SIZE+10, 20);
 		}
 	
 	}
@@ -172,7 +175,7 @@ class Round {
 			this.ball.update(this.particles);
 			this.ball.draw();
 			
-			if (createVector(width-this.ball.p.x, this.ball.p.y).dist(this.end) < BALL_SIZE) {
+			if (createVector(this.ball.p.x, this.ball.p.y).dist(this.end) < BALL_SIZE) {
 				
 				if (this.ball.isAlive) {
 					setTimeout(finishRound, 1000);		
@@ -187,7 +190,7 @@ class Round {
 			}
 		}
 		else if (this.timer + 3000 < millis()) {
-			this.ball = new Ball(width-this.start.x, this.start.y);	 
+			this.ball = new Ball(this.start.x, this.start.y);	 
 		}
 	}
 	
@@ -234,6 +237,8 @@ class Round {
 
 
 
+
+
 class Particle {
 	constructor(x, y) {
 		this.v2 = new createVector(x, y);
@@ -243,7 +248,13 @@ class Particle {
 	draw() {
 		stroke(200);
 		strokeWeight(2);
-		line(width - this.v1.x, this.v1.y, width - this.v1.x, this.v1.y-1);
+		line(width - this.v1.x, this.v1.y, width - this.v2.x, this.v2.y-1);
+	}
+	
+	drawMirrored() {
+		stroke(200);
+		strokeWeight(2);
+		line(this.v1.x, this.v1.y, this.v2.x, this.v2.y-1);
 	}
 	
 	connect(list) {
@@ -262,7 +273,6 @@ class Particle {
 	}
 
 }
-
 
 
 
