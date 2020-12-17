@@ -7,12 +7,17 @@ let pastRounds; // saved states
 let inIntro, startGame; // whether intro is playing, if key was pressed
 let mosaicTimer; // start of Mosaic display
 let difficulty; // coefficient of display threshold
+let soundEffect; // clink sound effects
 
 let roundVectors; // minigame round configuration
 let playbackRatios; // speed to play each save state at
 let frameStarted; // frame mosaic started
 
 let BACKGROUNDC, FOREGROUNDC, HIGHLIGHTS; // Color palette
+
+function preload() {
+	soundEffect = loadSound('clink.wav');
+}
 
 function setup() {
 	
@@ -448,228 +453,40 @@ class Round { // A stage of the minigame
 
 }
 
-
-
-
-
-
-
-
-class Round { // A stage of the minigame
-
-	constructor(startV, goalV) {
-		this.timer = millis(); // when the game started
-		this.particles = []; // contains all vectors on screen
-		this.lastParticleCount = 0; // last frame's num of vectors
-		
-		this.start = startV; // pos of ball spawn
-		this.end = goalV; // pos of ball goal
-		this.arrowPos = 0; // offset of indicators
-		this.arrowDir = 1; // direction of indicator animation
-
-		this.savedFrames = []; // array recording state
-	
-		backgroundFrame = createImage(width, height); // starts difference detection
+class Particle { // A vector of static
+	constructor(x, y) {
+		this.v2 = new createVector(x, y);
+		this.v1 = new createVector(x, y);
 	}
 	
-	
-	drawBackground() { // For Intro screen, draws just the static
-		background(BACKGROUNDC);
-		
-		loadPixels();
-		video.loadPixels();
-		backgroundFrame.loadPixels();
-		
-		this.findMotion();
-		this.connectParticles();
-		
-		if (this.particles.length > this.lastParticleCount + 20) {
-			this.updateBackground();
-		}
-		
-		this.lastParticleCount = this.particles.length;
-		this.particles = [];
+	draw() {
+		stroke(HIGHLIGHTS[int(random(0, 4))]);
+		strokeWeight(2);
+		line(width - this.v1.x, this.v1.y, width - this.v2.x, this.v2.y-1);
 	}
 	
-	updateBackground() { // Resets difference detection
-		backgroundFrame.copy(video, 0, 0, video.width, video.height, 0, 0, video.width, video.height);
+	drawMirrored() { // Draws dot for end mosaic
+		stroke(HIGHLIGHTS[int(random(0, 4))]);
+		strokeWeight(5);
+		line(this.v1.x, this.v1.y, this.v1.x, this.v1.y-1);
 	}
 	
-	
-	drawGame() {	// Full game drawn
-		background(BACKGROUNDC);
-		
-		this.drawInfo();
-		
-		loadPixels();
-		video.loadPixels();
-		backgroundFrame.loadPixels();
-		
-		this.findMotion();
-		this.connectParticles();
-		
-		if (this.particles.length > this.lastParticleCount + 20) {
-			updateBackground();
-		}
-		
-		this.lastParticleCount = this.particles.length;
-		this.updateBall();
-
-		this.particles = [];
-		
-		this.saveFrame();
-	}
-	
-	
-	
-	drawInfo() { // Draws overlay of indicators and countdown
-		
-		if (this.timer + 2000 > millis()) { // Countdown
-			textAlign(CENTER, CENTER);
-			textSize(100);
-			fill(FOREGROUNDC);
-			text(int(map(millis(), this.timer, this.timer+3000, 3, -1))+1, width/2, height/2);
-		}
-		
-		this.arrowIn(width - this.start.x, this.start.y); 
-		this.arrowOut(width - this.end.x, this.end.y);
-		
-		
-		if (this.arrowDir == 1 && this.arrowPos < 10) { // Arrow animation
-			this.arrowPos += 1;
-		}
-		else {
-			this.arrowDir = -1;
-		}
-		
-		if (this.arrowDir == -1 && this.arrowPos > -10) {
-			this.arrowPos -= 1;
-		}
-		else {
-			this.arrowDir = 1;
-		}
-	
-	}
-	
-	updateBall() { // updates ball object and checks for goal
-		if (this.ball != null) {
-			this.ball.update(this.particles);
-			this.ball.draw();
-			
-			if (createVector(this.ball.p.x, this.ball.p.y).dist(this.end) < BALL_SIZE + 15) {
-				
-				if (this.ball.isAlive) {
-					setTimeout(finishRound, 1000);		
-				}
-				
-				this.ball.isAlive = false;
-				
-				textAlign(CENTER, CENTER);
-				textSize(100);
-				fill(FOREGROUNDC);
-				text('Goal!', width/2, height/2);
+	connect(list) { // links to the closest other vector
+		let shortest = -1, distance = 0, bestDist = 0;
+		for (let i = 0; i < list.length; i++) {
+			distance = dist(list[i].v1.x, list[i].v1.y, this.v1.x, this.v1.y);
+			if (distance < 60 && distance > 0 && (shortest == -1 || distance < bestDist)) {
+					shortest = i;
+					bestDist = distance;
 			}
 		}
-		else if (this.timer + 3000 < millis()) { // creates ball if not there
-			this.ball = new Ball(this.start.x, this.start.y);	 
-		}
-	}
-	
-	findMotion() { // difference detection
-		for (let x = 0; x < width; x+=10) {
-			for (let y = 0; y < height; y+=10) {
-				let l = (x + y * width) * 4;
-				if (l+2 < video.pixels.length){
-					let diff = dist(backgroundFrame.pixels[l],
-											 backgroundFrame.pixels[l+1],
-											 backgroundFrame.pixels[l+2],
-											 video.pixels[l],
-											 video.pixels[l+1],
-											 video.pixels[l+2]);
-					
-					if (diff > 130 * difficulty) {
-							let p = new Particle(x, y, this.particles);
-							this.particles.push(p);
-					}
-				}
-			}
-		}
-	}
-	
-	connectParticles() { // links close changed pixels
-		this.particles.sort((a, b) => {
-			return a.v1.x - b.v1.x;
-		});
 		
-		for (let i = 0; i < this.particles.length; i++) {
-			this.particles[i].connect(this.particles.slice(i-20, i+21));
-			this.particles[i].draw();
+		if (shortest != -1) {
+			this.v2 = list[shortest].v1;
 		}
-	}
-	
-	saveFrame() { // records static and ball for save state
-		if (this.ball != null && this.ball.isAlive) {
-			this.savedFrames.push({
-				particles: this.particles, 
-				ballX: this.ball.p.x,
-				ballY: this.ball.p.y
-			});
-		}
-	}
-	
-	
-	
-	arrowIn(x, y) { // Draws start indicator
-		if (y == 0) {
-			this.arrow(x, y, x, y + BALL_SIZE);
-		}
-		else if (y == height) {
-			this.arrow(x, y, x, y - BALL_SIZE);
-		}
-		else if (x == 0) {
-			this.arrow(x, y, x + BALL_SIZE, y);
-		}
-		else if (x == width) {
-			this.arrow(x, y, x - BALL_SIZE, y);
-		}
-	}
-	
-	arrowOut(x, y) { // Draws goal indicator
-		if (y == 0) {
-			this.arrow(x, y + BALL_SIZE, x, y);
-		}
-		else if (y == height) {
-			this.arrow(x, y - BALL_SIZE, x, y);
-		}
-		else if (x == 0) {
-			this.arrow(x + BALL_SIZE, y, x, y);
-		}
-		else if (x == width) {
-			this.arrow(x - BALL_SIZE, y, x, y);
-		}
-	}
-	
-	arrow(x1, y1, x2, y2) { // Draws indicator from p1 to p2
-		noStroke();
-		fill(HIGHLIGHTS[3]);
-		push();
-		
-		if (x1 == x2) {
-			translate(0, this.arrowPos);
-			triangle(x2, y2, x2 + 20, y1, x2 - 20, y1);
-		}
-		else {
-			translate(this.arrowPos, 0);
-			triangle(x2, y2, x1, y2 + 20, x1, y2 - 20);
-		}
-		
-		pop();
 	}
 
 }
-
-
-
 
 
 let BALL_SIZE = 40;
@@ -688,7 +505,7 @@ class Ball {
 				if (dist((list[i].v1.x+list[i].v2.x)/2, (list[i].v1.y+list[i].v2.y)/2, this.p.x, this.p.y) < BALL_SIZE && 
 					 dist((list[i].v1.x+list[i].v2.x)/2, (list[i].v1.y+list[i].v2.y)/2, this.p.x, this.p.y) > BALL_SIZE-(BALL_SIZE/2)) {
 					let line = list[i].v2.sub(list[i].v1);
-
+					soundEffect.play();
 					this.v = (createVector(line.y, line.x));
 				}
 			}
